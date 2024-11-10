@@ -1,0 +1,39 @@
+class LogisticRegressionScratch:
+    def __init__(self, learning_rate=0.01, epochs=1000):
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.weights = None
+        self.bias = None
+
+    def sigmoid(self, z):
+        return 1 / (1 + np.exp(-z))
+
+    def fit(self, X, y):
+        n_samples, n_features = X.shape
+        # Initialize weights and bias
+        self.weights = np.zeros(n_features)
+        self.bias = 0
+
+        # Gradient descent
+        for _ in range(self.epochs):
+            # Linear model
+            linear_model = np.dot(X, self.weights) + self.bias
+            # Apply sigmoid function
+            y_pred = self.sigmoid(linear_model)
+
+            # Calculate gradients
+            dw = (1 / n_samples) * np.dot(X.T, (y_pred - y))
+            db = (1 / n_samples) * np.sum(y_pred - y)
+
+            # Update parameters
+            self.weights -= self.learning_rate * dw
+            self.bias -= self.learning_rate * db
+
+    def predict_proba(self, X):
+        linear_model = np.dot(X, self.weights) + self.bias
+        return self.sigmoid(linear_model)
+
+    def predict(self, X, threshold=0.5):
+        # Convert probabilities to binary output (0 or 1)
+        y_pred_proba = self.predict_proba(X)
+        return [1 if i > threshold else 0 for i in y_pred_proba]
