@@ -1,0 +1,72 @@
+import numpy as np
+
+class DecisionTree:
+    def __init__(self, max_depth=10, min_samples_split=2):
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.tree = None
+
+    def fit(self, X, y, depth=0):
+        # Stopping conditions
+        n_samples, n_features = X.shape
+        if depth >= self.max_depth or n_samples < self.min_samples_split:
+            return np.mean(y)
+
+        # Randomly select features
+        feat_idxs = np.random.choice(n_features, int(np.sqrt(n_features)), replace=False)
+        best_feat, best_thresh = self._best_split(X, y, feat_idxs)
+        if best_feat is None:
+            return np.mean(y)
+
+        # Split data
+        left_idxs = X[:, best_feat] < best_thresh
+        right_idxs = X[:, best_feat] >= best_thresh
+        left_subtree = self.fit(X[left_idxs], y[left_idxs], depth + 1)
+        right_subtree = self.fit(X[right_idxs], y[right_idxs], depth + 1)
+        return {'feature': best_feat, 'threshold': best_thresh, 'left': left_subtree, 'right': right_subtree}
+
+    def _best_split(self, X, y, feat_idxs):
+        best_feat, best_thresh, best_mse = None, None, float("inf")
+        for feat in feat_idxs:
+            thresholds = np.unique(X[:, feat])
+            for thresh in thresholds:
+                left_idxs, right_idxs = X[:, feat] < thresh, X[:, feat] >= thresh
+                left_mse = np.mean((y[left_idxs] - y[left_idxs].mean()) ** 2) if len(y[left_idxs]) > 0 else 0
+                right_mse = np.mean((y[right_idxs] - y[right_idxs].mean()) ** 2) if len(y[right_idxs]) > 0 else 0
+                mse = left_mse * len(left_idxs) + right_mse * len(right_idxs)
+                if mse < best_mse:
+                    best_feat, best_thresh, best_mse = feat, thresh, mse
+        return best_feat, best_thresh
+
+    def predict(self, X):
+        return np.array([self._predict_sample(x, self.tree) for x in X])
+
+    def _predict_sample(self, x, tree):
+        if not isinstance(tree, dict):
+            return tree
+        feature, threshold = tree['feature'], tree['threshold']
+        if x[feature] < threshold:
+            return self._predict_sample(x, tree['left'])
+        else:
+            return self._predict_sample(x, tree['right'])
+
+class RandomForest:
+    def __init__(self, n_trees=10, max_depth=10, min_samples_split=2):
+        self.n_trees = n_trees
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.trees = []
+
+    def fit(self, X, y):
+        for _ in range(self.n_trees):
+            # Bootstrap sample
+            idxs = np.random.choice(len(X), len(X), replace=True)
+            X_sample, y_sample = X[idxs], y[idxs]
+            tree = DecisionTree(max_depth=self.max_depth, min_samples_split=self.min_samples_split)
+            tree.tree = tree.fit(X_sample, y_sample)
+            self.trees.append(tree)
+
+    def predict(self, X):
+        # Aggregate predictions from all trees
+        predictions = np.array([tree.predict(X) for tree in self.trees])
+        return np.mean(predictions, axis=0)
